@@ -1,0 +1,12 @@
+{
+  "name": "YoutubeWatch",
+  "id": "1441766262549436446",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://www.youtube.com"]
+  }
+}

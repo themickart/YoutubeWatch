@@ -1,0 +1,59 @@
+export const DEMO_URL = "https://www.youtube.com/watch?v=M7lc1UVf-VE";
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+
+export function parseTime(value) {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Math.min(Number(value), 2147483647);
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(value);
+  if (!match || !match[0]) return 0;
+  return Math.min(Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0), 2147483647);
+}
+
+export function parseVideo(input) {
+  const value = input.trim();
+  if (VIDEO_ID.test(value)) return { id: value, start: 0 };
+  let url;
+  try {
+    url = new URL(/^(?:(?:www|m)\.)?(?:youtube\.com|youtu\.be)\//i.test(value) ? `https://${value}` : value);
+  } catch {
+    throw new Error("Paste a YouTube video link or an 11-character video ID.");
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) {
+    throw new Error("Use a regular YouTube video link.");
+  }
+  const host = url.hostname.toLowerCase();
+  let id;
+  if (host === 'youtu.be') {
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length === 1) id = parts[0];
+  } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)) {
+    if (url.pathname === '/watch') id = url.searchParams.get('v');
+    else id = /^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})\/?$/.exec(url.pathname)?.[1];
+  } else {
+    throw new Error("Only YouTube video links are supported.");
+  }
+  if (!id || !VIDEO_ID.test(id)) throw new Error("This link has no video ID. Open a video and copy its link.");
+  return { id, start: parseTime(url.searchParams.get('t') || url.searchParams.get('start') || new URLSearchParams(url.hash.slice(1)).get('t')) };
+}
+
+export function embedUrl(video, origin) {
+  // Never navigate directly to pasted URLs, including short URLs.
+  const url = new URL(`https://www.youtube.com/embed/${video.id}`);
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', rel: '0' });
+  if (video.start) url.searchParams.set('start', String(video.start));
+  // An opaque Figma sandbox has no HTTP origin; do not invent one.
+  if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
+  return url.href;
+}
+
+export function playerError(code) {
+  const messages = {
+    2: "YouTube could not read this video ID. Check the link and try again.",
+    5: "YouTube could not play this video. Try reloading it or opening it on YouTube.",
+    100: "This video is unavailable, private, or has been removed. Try another link.",
+    101: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
+    150: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
+    153: "YouTube did not receive the required HTTP Referer from the Figma sandbox. With only www.youtube.com allowed, this environment cannot play the embed. Use the arrow beside the link to open it on YouTube."
+  };
+  return messages[code] || "YouTube could not play this video. Try another link or open it on YouTube.";
+}

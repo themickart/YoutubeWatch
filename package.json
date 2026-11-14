@@ -1,0 +1,19 @@
+{
+  "name": "youtubewatch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimalist YouTube video player for Figma.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "playwright test",
+    "preview": "node scripts/preview.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1"
+  }
+}

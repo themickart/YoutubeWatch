@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>YoutubeWatch</title>
+  <style>/* INLINE_STYLES */</style>
+</head>
+<body>
+  <main class="app">
+    <form id="video-form" novalidate>
+      <label class="sr-only" for="video-url">YouTube video link or video ID</label>
+      <input id="video-url" type="text" placeholder="YouTube link" autocomplete="off" spellcheck="false" aria-describedby="status">
+      <button class="load-button" type="submit" aria-label="Load video" title="Load video (Enter)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg></button>
+      <button id="reload" class="icon-button" type="button" title="Reload video" aria-label="Reload video" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8a8 8 0 1 0 1 7M19 3v6h-6"/></svg></button>
+      <a id="external-link" class="icon-button" title="Open on YouTube" aria-label="Open video on YouTube" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a>
+    </form>
+    <section class="player-shell" aria-label="Video player">
+      <div id="player-host"></div>
+      <button id="demo-play" class="empty-state" aria-label="Load the YouTube demo video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg><span>Try demo</span></button>
+    </section>
+    <div class="status-bar"><span id="status" role="status" aria-live="polite">Paste a link or try the demo</span><span id="resize-handle" role="separator" aria-label="Resize player window" aria-orientation="vertical" tabindex="0" title="Drag to resize; arrow keys also work"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 10 7-7m-3 7 3-3"/></svg></span></div>
+  </main>
+  <script>/* INLINE_SCRIPT */</script>
+</body>
+</html>
