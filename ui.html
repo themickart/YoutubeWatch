@@ -6,7 +6,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>YoutubeWatch</title>
   <style>:root{color-scheme:dark;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e4e4e8;background:#18181b}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}button,input,a{font:inherit}button,a{color:inherit}button{cursor:pointer}button:disabled{opacity:.3;cursor:default}[hidden]{display:none!important}.app{display:grid;grid-template-rows:44px minmax(0,1fr) 22px;width:100%;height:100%;min-width:0;min-height:0}#video-form{display:flex;align-items:center;gap:5px;padding:6px 8px;min-width:0}input{flex:1;min-width:0;height:30px;border:1px solid #38383f;background:#222226;color:#f0f0f2;border-radius:5px;padding:0 9px;outline:none}input::placeholder{color:#9898a3}input:focus{border-color:#b96d73}input[aria-invalid=true]{border-color:#ed777e}button,a{flex-shrink:0}button:focus-visible,a:focus-visible,#resize-handle:focus-visible{outline:2px solid #ef9198;outline-offset:1px}svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.load-button,.icon-button{border:0;border-radius:5px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:transparent;color:#aaaab5;padding:0}.load-button{color:#fff;background:#e44950}.load-button:hover{background:#f15d64}.load-button svg{fill:currentColor;stroke:none;width:17px;height:17px}.icon-button:hover:not(:disabled){color:#fff;background:#303036}.player-shell{position:relative;min-width:0;min-height:0;background:#101012;overflow:hidden}#player-host{position:absolute;inset:0}#player-host iframe{width:100%;height:100%;border:0;display:block}.empty-state{position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;border:0;background:transparent;color:#92929c}.empty-state svg{fill:#e76870;stroke:none;width:32px;height:32px}.empty-state span{font-size:11px}.empty-state:hover{color:#dddde4;background:#ffffff03}.status-bar{display:flex;align-items:center;min-width:0;padding-left:8px;gap:4px}#status{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:#9696a3}#status[data-state=error]{color:#f3969d}#resize-handle{width:22px;height:22px;display:grid;place-items:center;cursor:nwse-resize;color:#777782;touch-action:none;user-select:none}#resize-handle svg{width:12px;height:12px}body.resizing{cursor:nwse-resize;user-select:none}body.resizing #player-host{pointer-events:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}button,input,a{font:inherit}button,a{color:inherit}button{cursor:pointer}button:disabled{opacity:.3;cursor:default}[hidden]{display:none!important}.app{display:grid;grid-template-rows:44px minmax(0,1fr) 22px;width:100%;height:100%;min-width:0;min-height:0}.app.toolbar-hidden{grid-template-rows:0 minmax(0,1fr) 22px}#video-form{grid-row:1;display:flex;align-items:center;gap:5px;padding:6px 8px;min-width:0}#video-url{flex:1;min-width:0;height:30px;border:1px solid #38383f;background:#222226;color:#f0f0f2;border-radius:5px;padding:0 9px;outline:none}#video-url::placeholder{color:#9898a3}#video-url:focus{border-color:#b96d73}#video-url[aria-invalid=true]{border-color:#ed777e}button,a{flex-shrink:0}button:focus-visible,a:focus-visible,#resize-handle:focus-visible{outline:2px solid #ef9198;outline-offset:1px}svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.load-button,.icon-button{border:0;border-radius:5px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:transparent;color:#aaaab5;padding:0}.load-button{color:#fff;background:#e44950}.load-button:hover{background:#f15d64}.load-button svg{fill:currentColor;stroke:none;width:17px;height:17px}.icon-button:hover:not(:disabled){color:#fff;background:#303036}.player-shell{grid-row:2;position:relative;min-width:0;min-height:0;background:#101012;overflow:hidden}#player-host{position:absolute;inset:0}#player-host iframe{width:100%;height:100%;border:0;display:block}.empty-state{position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;border:0;background:transparent;color:#92929c}.empty-state svg{fill:#e76870;stroke:none;width:32px;height:32px}.empty-state span{font-size:11px}.empty-state:hover{color:#dddde4;background:#ffffff03}.status-bar{grid-row:3;display:flex;align-items:center;min-width:0;padding-left:8px;gap:4px}#status{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:#9696a3}#status[data-state=error]{color:#f3969d}.bar-button{width:22px;height:22px;display:grid;place-items:center;border:0;padding:0;background:transparent;color:#aaaab5;border-radius:3px}.bar-button:hover{background:#303036;color:#fff}.bar-button svg{width:14px;height:14px}.toolbar-hidden #toolbar-toggle svg{transform:rotate(180deg)}#volume-controls{display:flex;align-items:center;gap:3px;flex-shrink:0}#volume{width:68px;min-width:0;height:18px;margin:0;accent-color:#e76870;cursor:pointer}#volume:focus-visible{outline:1px solid #ef9198;outline-offset:0}.sound-off{display:none}#mute-toggle[aria-pressed=true] .sound-off{display:block}#mute-toggle[aria-pressed=true] .sound-waves{display:none}#resize-handle{width:22px;height:22px;display:grid;place-items:center;cursor:nwse-resize;color:#777782;touch-action:none;user-select:none}#resize-handle svg{width:12px;height:12px}body.resizing{cursor:nwse-resize;user-select:none}body.resizing #player-host{pointer-events:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
@@ -22,7 +22,16 @@
       <div id="player-host"></div>
       <button id="demo-play" class="empty-state" aria-label="Load the YouTube demo video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg><span>Try demo</span></button>
     </section>
-    <div class="status-bar"><span id="status" role="status" aria-live="polite">Paste a link or try the demo</span><span id="resize-handle" role="separator" aria-label="Resize player window" aria-orientation="vertical" tabindex="0" title="Drag to resize; arrow keys also work"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 10 7-7m-3 7 3-3"/></svg></span></div>
+    <div class="status-bar">
+      <button id="toolbar-toggle" class="bar-button" type="button" aria-label="Hide video link" aria-expanded="true" aria-controls="video-form" title="Hide video link" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+      <span id="status" role="status" aria-live="polite">Paste a link or try the demo</span>
+      <div id="volume-controls" hidden>
+        <button id="mute-toggle" class="bar-button" type="button" aria-label="Mute" aria-pressed="false" title="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m16 9 5 6m0-6-5 6"/></svg></button>
+        <label class="sr-only" for="volume">Volume</label>
+        <input id="volume" type="range" min="0" max="100" step="1" value="100" aria-valuetext="100%" title="Volume: 100%">
+      </div>
+      <span id="resize-handle" role="separator" aria-label="Resize player window" aria-orientation="vertical" tabindex="0" title="Drag to resize; arrow keys also work"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 10 7-7m-3 7 3-3"/></svg></span>
+    </div>
   </main>
   <script>const DEMO_URL = "https://www.youtube.com/watch?v=M7lc1UVf-VE";
 const PLAYER_PAGE_URL = "https://themickart.github.io/YoutubeWatch/player.html";
@@ -32,6 +41,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 function playerPageUrl(video, channel) {
   if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
   const url = new URL(PLAYER_PAGE_URL);
+  url.searchParams.set('build', '2');
   url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
   return url.href;
 }
@@ -44,6 +54,16 @@ function readPlayerEvent(event, source, channel) {
   if (message.type === 'state' && [-1, 0, 1, 2, 3, 5].includes(message.data)) return message;
   if (message.type === 'error' && Number.isInteger(message.data)) return message;
   if (message.type === 'failure' && message.data === 'api-unavailable') return message;
+  if (message.type === 'volume' && message.data && Number.isInteger(message.data.volume) && message.data.volume >= 0 && message.data.volume <= 100 && typeof message.data.muted === 'boolean') return message;
+  return null;
+}
+
+function readPlayerCommand(event, source, channel) {
+  if (!source || !channel || event.source !== source) return null;
+  const message = event.data;
+  if (!message || message.source !== 'youtubewatch-ui' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
+  if (message.type === 'set-volume' && Number.isInteger(message.data) && message.data >= 0 && message.data <= 100) return message;
+  if (message.type === 'set-muted' && typeof message.data === 'boolean') return message;
   return null;
 }
 
@@ -85,7 +105,7 @@ function parseVideo(input) {
 function embedUrl(video, origin) {
   // Never navigate directly to pasted URLs, including short URLs.
   const url = new URL(`https://www.youtube.com/embed/${video.id}`);
-  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', rel: '0' });
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '1', rel: '0' });
   if (video.start) url.searchParams.set('start', String(video.start));
   // An opaque Figma sandbox has no HTTP origin; do not invent one.
   if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
@@ -109,6 +129,40 @@ let currentVideo = null;
 let channel = null;
 let loadTimer;
 let playbackError = false;
+let autoHideToolbar = true;
+let audio = { volume: 100, muted: false };
+let preferredVolume = null;
+let preferredMuted = null;
+let lastAudibleVolume = 100;
+
+function setToolbarHidden(hidden) {
+  const focused = $('video-form').contains(document.activeElement);
+  $('video-form').hidden = hidden;
+  document.querySelector('.app').classList.toggle('toolbar-hidden', hidden);
+  $('toolbar-toggle').setAttribute('aria-expanded', String(!hidden));
+  const label = hidden ? 'Show video link' : 'Hide video link';
+  $('toolbar-toggle').setAttribute('aria-label', label);
+  $('toolbar-toggle').title = label;
+  if (hidden && focused) $('toolbar-toggle').focus({ preventScroll: true });
+}
+
+function sendCommand(type, data) {
+  const frame = $('youtube-player');
+  if (frame && channel) frame.contentWindow.postMessage({ source: 'youtubewatch-ui', version: PLAYER_PROTOCOL, channel, type, data }, new URL(PLAYER_PAGE_URL).origin);
+}
+
+function renderAudio(data) {
+  audio = data;
+  if (data.volume > 0) lastAudibleVolume = data.volume;
+  $('volume-controls').hidden = false;
+  $('volume').value = String(data.volume);
+  $('volume').setAttribute('aria-valuetext', `${data.volume}%`);
+  $('volume').title = `Volume: ${data.volume}%`;
+  const muted = data.muted || data.volume === 0;
+  $('mute-toggle').setAttribute('aria-pressed', String(muted));
+  $('mute-toggle').setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+  $('mute-toggle').title = muted ? 'Unmute' : 'Mute';
+}
 
 function setStatus(text, state = 'idle', detail = text) {
   $('status').textContent = text;
@@ -122,8 +176,11 @@ function onPlayerEvent(type, data) {
     if (playbackError) return;
     clearTimeout(loadTimer);
     setStatus('Press play in the video', 'ready');
+    if (preferredVolume !== null) sendCommand('set-volume', preferredVolume);
+    if (preferredMuted !== null) sendCommand('set-muted', preferredMuted);
   } else if (type === 'error') {
     playbackError = true;
+    setToolbarHidden(false);
     clearTimeout(loadTimer);
     setStatus(data === 153 ? 'Error 153 · missing player referrer' : `YouTube error ${data}`, 'error', playerError(data));
   } else if (type === 'state') {
@@ -131,10 +188,12 @@ function onPlayerEvent(type, data) {
     // An unstarted event must not erase a preceding 153 error.
     if (states[data] && (data === 1 || !playbackError)) {
       if (data === 1) playbackError = false;
+      if (data === 1 && autoHideToolbar) { autoHideToolbar = false; setToolbarHidden(true); }
       clearTimeout(loadTimer);
       setStatus(...states[data]);
     }
-  } else if (type === 'autoplay-blocked' && !playbackError) setStatus('Press play in the video', 'ready');
+  } else if (type === 'volume') renderAudio(data);
+  else if (type === 'autoplay-blocked' && !playbackError) setStatus('Press play in the video', 'ready');
   else if (type === 'failure') {
     clearTimeout(loadTimer);
     setStatus('Player status unavailable. Try reload.', 'error');
@@ -154,6 +213,10 @@ function loadVideo(input) {
   clearTimeout(loadTimer);
   currentVideo = video;
   playbackError = false;
+  autoHideToolbar = true;
+  setToolbarHidden(false);
+  $('toolbar-toggle').hidden = false;
+  $('volume-controls').hidden = true;
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   channel = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
@@ -185,6 +248,26 @@ $('demo-play').addEventListener('click', () => { $('video-url').value = DEMO_URL
 $('video-url').addEventListener('input', () => $('video-url').removeAttribute('aria-invalid'));
 $('reload').addEventListener('click', () => {
   if (currentVideo) loadVideo(`https://www.youtube.com/watch?v=${currentVideo.id}&t=${currentVideo.start}s`);
+});
+$('toolbar-toggle').addEventListener('click', () => {
+  autoHideToolbar = false;
+  setToolbarHidden(!$('video-form').hidden);
+});
+$('volume').addEventListener('input', event => {
+  preferredVolume = Number(event.target.value);
+  preferredMuted = preferredVolume === 0;
+  renderAudio({ volume: preferredVolume, muted: preferredMuted });
+  sendCommand('set-volume', preferredVolume);
+});
+$('mute-toggle').addEventListener('click', () => {
+  const muted = audio.muted || audio.volume === 0;
+  preferredMuted = !muted;
+  if (muted && audio.volume === 0) {
+    preferredVolume = lastAudibleVolume;
+    sendCommand('set-volume', preferredVolume);
+    renderAudio({ volume: preferredVolume, muted: false });
+  } else renderAudio({ volume: audio.volume, muted: preferredMuted });
+  sendCommand('set-muted', preferredMuted);
 });
 
 function resize(width, height) {

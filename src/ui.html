@@ -20,7 +20,16 @@
       <div id="player-host"></div>
       <button id="demo-play" class="empty-state" aria-label="Load the YouTube demo video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7z"/></svg><span>Try demo</span></button>
     </section>
-    <div class="status-bar"><span id="status" role="status" aria-live="polite">Paste a link or try the demo</span><span id="resize-handle" role="separator" aria-label="Resize player window" aria-orientation="vertical" tabindex="0" title="Drag to resize; arrow keys also work"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 10 7-7m-3 7 3-3"/></svg></span></div>
+    <div class="status-bar">
+      <button id="toolbar-toggle" class="bar-button" type="button" aria-label="Hide video link" aria-expanded="true" aria-controls="video-form" title="Hide video link" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+      <span id="status" role="status" aria-live="polite">Paste a link or try the demo</span>
+      <div id="volume-controls" hidden>
+        <button id="mute-toggle" class="bar-button" type="button" aria-label="Mute" aria-pressed="false" title="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m16 9 5 6m0-6-5 6"/></svg></button>
+        <label class="sr-only" for="volume">Volume</label>
+        <input id="volume" type="range" min="0" max="100" step="1" value="100" aria-valuetext="100%" title="Volume: 100%">
+      </div>
+      <span id="resize-handle" role="separator" aria-label="Resize player window" aria-orientation="vertical" tabindex="0" title="Drag to resize; arrow keys also work"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 10 7-7m-3 7 3-3"/></svg></span>
+    </div>
   </main>
   <script>/* INLINE_SCRIPT */</script>
 </body>

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { parseVideo, parseTime, embedUrl, playerError, playerPageUrl, readPlayerEvent, PLAYER_PAGE_URL } from '../src/video.mjs';
+import { parseVideo, parseTime, embedUrl, playerError, playerPageUrl, readPlayerEvent, readPlayerCommand, PLAYER_PAGE_URL } from '../src/video.mjs';
 
 test('accepts video links, mobile, Shorts, live and embed links without fetching them', () => {
   for (const input of [
@@ -62,7 +62,7 @@ test('hosted player URLs keep the video and channel in the fragment', () => {
   const channel = 'a'.repeat(32);
   const url = new URL(playerPageUrl(parseVideo('https://youtu.be/M7lc1UVf-VE?t=90'), channel));
   assert.equal(url.origin + url.pathname, PLAYER_PAGE_URL);
-  assert.equal(url.search, '');
+  assert.equal(url.search, '?build=2');
   assert.equal(new URLSearchParams(url.hash.slice(1)).get('start'), '90');
   assert.equal(new URLSearchParams(url.hash.slice(1)).get('channel'), channel);
   assert.throws(() => playerPageUrl({ id: '<script>', start: 0 }, channel));
@@ -79,6 +79,22 @@ test('player events require the correct origin, window, channel, version and sha
   for (const patch of [{ version: 2 }, { channel: 'b'.repeat(32) }, { source: 'other' }, { type: 'resize' }, { data: '1' }, { data: 10000 }]) assert.equal(readPlayerEvent({ ...event, data: { ...message, ...patch } }, source, channel), null);
   assert.equal(readPlayerEvent(event, null, channel), null);
   assert.equal(readPlayerEvent(event, source, null), null);
+  const volumeEvent = { ...event, data: { ...message, type: 'volume', data: { volume: 35, muted: false } } };
+  assert.equal(readPlayerEvent(volumeEvent, source, channel), volumeEvent.data);
+  for (const data of [{ volume: -1, muted: false }, { volume: 101, muted: false }, { volume: 3.5, muted: false }, { volume: 35, muted: 'false' }, null]) assert.equal(readPlayerEvent({ ...volumeEvent, data: { ...volumeEvent.data, data } }, source, channel), null);
+});
+
+test('audio commands require the parent, channel and bounded typed values', () => {
+  const source = {};
+  const channel = 'a'.repeat(32);
+  const message = { source: 'youtubewatch-ui', version: 1, channel, type: 'set-volume', data: 35 };
+  const event = { source, origin: 'null', data: message };
+  assert.equal(readPlayerCommand(event, source, channel), message);
+  for (const patch of [{ source: {} }, { data: null }]) assert.equal(readPlayerCommand({ ...event, ...patch }, source, channel), null);
+  for (const patch of [{ version: 2 }, { channel: 'wrong' }, { source: 'other' }, { type: 'play' }, { data: -1 }, { data: 101 }, { data: '35' }, { data: 3.5 }]) assert.equal(readPlayerCommand({ ...event, data: { ...message, ...patch } }, source, channel), null);
+  const mute = { ...message, type: 'set-muted', data: true };
+  assert.equal(readPlayerCommand({ ...event, data: mute }, source, channel), mute);
+  assert.equal(readPlayerCommand({ ...event, data: { ...mute, data: 'true' } }, source, channel), null);
 });
 
 test('manifest includes the plugin ID and player domains and points to runnable artifacts', async () => {

@@ -6,6 +6,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 export function playerPageUrl(video, channel) {
   if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
   const url = new URL(PLAYER_PAGE_URL);
+  url.searchParams.set('build', '2');
   url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
   return url.href;
 }
@@ -18,6 +19,16 @@ export function readPlayerEvent(event, source, channel) {
   if (message.type === 'state' && [-1, 0, 1, 2, 3, 5].includes(message.data)) return message;
   if (message.type === 'error' && Number.isInteger(message.data)) return message;
   if (message.type === 'failure' && message.data === 'api-unavailable') return message;
+  if (message.type === 'volume' && message.data && Number.isInteger(message.data.volume) && message.data.volume >= 0 && message.data.volume <= 100 && typeof message.data.muted === 'boolean') return message;
+  return null;
+}
+
+export function readPlayerCommand(event, source, channel) {
+  if (!source || !channel || event.source !== source) return null;
+  const message = event.data;
+  if (!message || message.source !== 'youtubewatch-ui' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
+  if (message.type === 'set-volume' && Number.isInteger(message.data) && message.data >= 0 && message.data <= 100) return message;
+  if (message.type === 'set-muted' && typeof message.data === 'boolean') return message;
   return null;
 }
 
@@ -59,7 +70,7 @@ export function parseVideo(input) {
 export function embedUrl(video, origin) {
   // Never navigate directly to pasted URLs, including short URLs.
   const url = new URL(`https://www.youtube.com/embed/${video.id}`);
-  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', rel: '0' });
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '1', rel: '0' });
   if (video.start) url.searchParams.set('start', String(video.start));
   // An opaque Figma sandbox has no HTTP origin; do not invent one.
   if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);

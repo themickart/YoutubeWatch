@@ -20,6 +20,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 function playerPageUrl(video, channel) {
   if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
   const url = new URL(PLAYER_PAGE_URL);
+  url.searchParams.set('build', '2');
   url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
   return url.href;
 }
@@ -32,6 +33,16 @@ function readPlayerEvent(event, source, channel) {
   if (message.type === 'state' && [-1, 0, 1, 2, 3, 5].includes(message.data)) return message;
   if (message.type === 'error' && Number.isInteger(message.data)) return message;
   if (message.type === 'failure' && message.data === 'api-unavailable') return message;
+  if (message.type === 'volume' && message.data && Number.isInteger(message.data.volume) && message.data.volume >= 0 && message.data.volume <= 100 && typeof message.data.muted === 'boolean') return message;
+  return null;
+}
+
+function readPlayerCommand(event, source, channel) {
+  if (!source || !channel || event.source !== source) return null;
+  const message = event.data;
+  if (!message || message.source !== 'youtubewatch-ui' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
+  if (message.type === 'set-volume' && Number.isInteger(message.data) && message.data >= 0 && message.data <= 100) return message;
+  if (message.type === 'set-muted' && typeof message.data === 'boolean') return message;
   return null;
 }
 
@@ -73,7 +84,7 @@ function parseVideo(input) {
 function embedUrl(video, origin) {
   // Never navigate directly to pasted URLs, including short URLs.
   const url = new URL(`https://www.youtube.com/embed/${video.id}`);
-  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', rel: '0' });
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '1', rel: '0' });
   if (video.start) url.searchParams.set('start', String(video.start));
   // An opaque Figma sandbox has no HTTP origin; do not invent one.
   if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
@@ -96,6 +107,10 @@ const params = new URLSearchParams(location.hash.slice(1));
 const videoId = params.get('v');
 const channel = params.get('channel');
 let apiTimer;
+let player;
+let ready = false;
+let volumeTimer;
+let lastAudio = '';
 
 function send(type, data) {
   // The local Figma UI has an opaque origin; authenticate replies there by source and channel.
@@ -107,6 +122,31 @@ function showError(text) {
   error.textContent = text;
   error.hidden = false;
 }
+
+function publishVolume() {
+  if (!ready) return;
+  const volume = Math.round(player.getVolume());
+  const muted = player.isMuted();
+  if (!Number.isFinite(volume) || volume < 0 || volume > 100) return;
+  const key = `${volume}:${muted}`;
+  if (key === lastAudio) return;
+  lastAudio = key;
+  send('volume', { volume, muted });
+}
+
+window.addEventListener('message', event => {
+  // Only the actual embedding window with this video's channel may control audio.
+  const command = readPlayerCommand(event, parent, channel);
+  if (!command || !ready) return;
+  if (command.type === 'set-volume') {
+    player.setVolume(command.data);
+    if (command.data > 0) player.unMute();
+    else player.mute();
+  } else if (command.data) player.mute();
+  else player.unMute();
+  publishVolume();
+});
+window.addEventListener('pagehide', () => clearInterval(volumeTimer));
 
 if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || '') || !/^[a-f0-9]{32}$/.test(channel || '')) {
   showError('Open a video from the YoutubeWatch plugin.');
@@ -125,8 +165,14 @@ if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || '') || !/^[a-f0-9]{32}$/.test(channel
   window.onYouTubeIframeAPIReady = () => {
     clearTimeout(apiTimer);
     try {
-      new YT.Player(frame, { events: {
-        onReady: () => send('ready'),
+      player = new YT.Player(frame, { events: {
+        onReady: event => {
+          player = event.target;
+          ready = true;
+          send('ready');
+          publishVolume();
+          volumeTimer = setInterval(publishVolume, 500);
+        },
         onStateChange: event => send('state', event.data),
         onError: event => send('error', event.data),
         onAutoplayBlocked: () => send('autoplay-blocked')
