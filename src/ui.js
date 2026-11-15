@@ -8,6 +8,34 @@ let audio = { volume: 100, muted: false };
 let preferredVolume = null;
 let preferredMuted = null;
 let lastAudibleVolume = 100;
+let aspectRatio = 16 / 9;
+let fitActive = false;
+let playing = false;
+let duration = 0;
+let seeking = false;
+
+function fitWindow() {
+  const size = fitPlayerWindow(innerWidth, !$('video-form').hidden, aspectRatio);
+  resize(size.width, size.height);
+}
+
+function renderPlayback(value) {
+  playing = value;
+  $('playback-toggle').dataset.playing = String(value);
+  $('playback-toggle').setAttribute('aria-label', value ? 'Pause' : 'Play');
+  $('playback-toggle').title = value ? 'Pause' : 'Play';
+}
+
+function renderProgress(data) {
+  duration = data.duration;
+  $('seek').hidden = duration <= 0;
+  $('seek').disabled = duration <= 0;
+  if (seeking || duration <= 0) return;
+  $('seek').value = String(Math.round(Math.min(data.time / duration, 1) * 1000));
+  const label = `${formatTime(data.time)} / ${formatTime(duration)}`;
+  $('seek').setAttribute('aria-valuetext', label);
+  $('seek').title = label;
+}
 
 function setToolbarHidden(hidden) {
   const focused = $('video-form').contains(document.activeElement);
@@ -18,6 +46,8 @@ function setToolbarHidden(hidden) {
   $('toolbar-toggle').setAttribute('aria-label', label);
   $('toolbar-toggle').title = label;
   if (hidden && focused) $('toolbar-toggle').focus({ preventScroll: true });
+  if (fitActive) fitWindow();
+  else if (innerHeight < (hidden ? 222 : 266)) resize(innerWidth, hidden ? 222 : 266);
 }
 
 function sendCommand(type, data) {
@@ -50,10 +80,12 @@ function onPlayerEvent(type, data) {
     if (playbackError) return;
     clearTimeout(loadTimer);
     setStatus('Press play in the video', 'ready');
+    $('playback-toggle').disabled = false;
     if (preferredVolume !== null) sendCommand('set-volume', preferredVolume);
     if (preferredMuted !== null) sendCommand('set-muted', preferredMuted);
   } else if (type === 'error') {
     playbackError = true;
+    renderPlayback(false);
     setToolbarHidden(false);
     clearTimeout(loadTimer);
     setStatus(data === 153 ? 'Error 153 · missing player referrer' : `YouTube error ${data}`, 'error', playerError(data));
@@ -62,12 +94,15 @@ function onPlayerEvent(type, data) {
     // An unstarted event must not erase a preceding 153 error.
     if (states[data] && (data === 1 || !playbackError)) {
       if (data === 1) playbackError = false;
+      if ([0, 1, 2, 5].includes(data)) renderPlayback(data === 1);
       if (data === 1 && autoHideToolbar) { autoHideToolbar = false; setToolbarHidden(true); }
       clearTimeout(loadTimer);
       setStatus(...states[data]);
     }
   } else if (type === 'volume') renderAudio(data);
-  else if (type === 'autoplay-blocked' && !playbackError) setStatus('Press play in the video', 'ready');
+  else if (type === 'playback') renderProgress(data);
+  else if (type === 'aspect') { aspectRatio = data; if (fitActive) fitWindow(); }
+  else if (type === 'autoplay-blocked' && !playbackError) { renderPlayback(false); setStatus('Press play in the video', 'ready'); }
   else if (type === 'failure') {
     clearTimeout(loadTimer);
     setStatus('Player status unavailable. Try reload.', 'error');
@@ -86,6 +121,15 @@ function loadVideo(input) {
   $('video-url').removeAttribute('aria-invalid');
   clearTimeout(loadTimer);
   currentVideo = video;
+  aspectRatio = 16 / 9;
+  duration = 0;
+  seeking = false;
+  renderPlayback(false);
+  $('playback-toggle').hidden = false;
+  $('playback-toggle').disabled = true;
+  $('seek').hidden = true;
+  $('seek').disabled = true;
+  $('fit-button').disabled = false;
   playbackError = false;
   autoHideToolbar = true;
   setToolbarHidden(false);
@@ -143,16 +187,35 @@ $('mute-toggle').addEventListener('click', () => {
   } else renderAudio({ volume: audio.volume, muted: preferredMuted });
   sendCommand('set-muted', preferredMuted);
 });
+$('fit-button').addEventListener('click', () => { fitActive = true; fitWindow(); });
+$('playback-toggle').addEventListener('click', () => {
+  sendCommand(playing ? 'pause' : 'play');
+  renderPlayback(!playing);
+});
+$('seek').addEventListener('pointerdown', () => { seeking = true; });
+$('seek').addEventListener('pointercancel', () => { seeking = false; });
+$('seek').addEventListener('pointerup', () => { seeking = false; });
+$('seek').addEventListener('input', event => {
+  seeking = true;
+  const label = `${formatTime(Number(event.target.value) / 1000 * duration)} / ${formatTime(duration)}`;
+  $('seek').setAttribute('aria-valuetext', label);
+  $('seek').title = label;
+});
+$('seek').addEventListener('change', event => {
+  if (duration > 0) sendCommand('seek', Number(event.target.value) / 1000 * duration);
+  seeking = false;
+});
 
 function resize(width, height) {
   width = Math.max(360, Math.min(1200, Math.round(width)));
-  height = Math.max(266, Math.min(900, Math.round(height)));
+  height = Math.max($('video-form').hidden ? 222 : 266, Math.min(900, Math.round(height)));
   if (window.parent !== window) parent.postMessage({ pluginMessage: { type: 'resize', width, height } }, '*');
 }
 let drag;
 const handle = $('resize-handle');
 handle.addEventListener('pointerdown', event => {
   if (event.button !== 0) return;
+  fitActive = false;
   drag = { x: event.screenX, y: event.screenY, width: innerWidth, height: innerHeight };
   handle.setPointerCapture(event.pointerId);
   document.body.classList.add('resizing');
@@ -168,6 +231,7 @@ handle.addEventListener('keydown', event => {
   const step = event.shiftKey ? 40 : 10;
   const offsets = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
   if (!offsets[event.key]) return;
+  fitActive = false;
   event.preventDefault();
   resize(innerWidth + offsets[event.key][0], innerHeight + offsets[event.key][1]);
 });

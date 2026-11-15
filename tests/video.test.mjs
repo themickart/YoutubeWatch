@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { parseVideo, parseTime, embedUrl, playerError, playerPageUrl, readPlayerEvent, readPlayerCommand, PLAYER_PAGE_URL } from '../src/video.mjs';
+import { parseVideo, parseTime, embedUrl, playerError, playerPageUrl, readPlayerEvent, readPlayerCommand, videoAspectRatio, fitPlayerWindow, formatTime, PLAYER_PAGE_URL } from '../src/video.mjs';
 
 test('accepts video links, mobile, Shorts, live and embed links without fetching them', () => {
   for (const input of [
@@ -45,6 +45,7 @@ test('normalizes YouTube embeds to the official network origin', () => {
   assert.equal(url.pathname, '/embed/M7lc1UVf-VE');
   assert.equal(url.searchParams.get('start'), '12');
   assert.equal(url.searchParams.get('autoplay'), '0');
+  assert.equal(url.searchParams.get('controls'), '0');
   assert.equal(url.searchParams.has('origin'), false);
   assert.equal(url.searchParams.has('si'), false);
   assert.equal(new URL(embedUrl({ id: 'M7lc1UVf-VE', start: 0 }, 'https://www.figma.com')).searchParams.get('origin'), 'https://www.figma.com');
@@ -62,7 +63,7 @@ test('hosted player URLs keep the video and channel in the fragment', () => {
   const channel = 'a'.repeat(32);
   const url = new URL(playerPageUrl(parseVideo('https://youtu.be/M7lc1UVf-VE?t=90'), channel));
   assert.equal(url.origin + url.pathname, PLAYER_PAGE_URL);
-  assert.equal(url.search, '?build=2');
+  assert.equal(url.search, '?build=3');
   assert.equal(new URLSearchParams(url.hash.slice(1)).get('start'), '90');
   assert.equal(new URLSearchParams(url.hash.slice(1)).get('channel'), channel);
   assert.throws(() => playerPageUrl({ id: '<script>', start: 0 }, channel));
@@ -95,6 +96,30 @@ test('audio commands require the parent, channel and bounded typed values', () =
   const mute = { ...message, type: 'set-muted', data: true };
   assert.equal(readPlayerCommand({ ...event, data: mute }, source, channel), mute);
   assert.equal(readPlayerCommand({ ...event, data: { ...mute, data: 'true' } }, source, channel), null);
+  for (const type of ['play', 'pause']) {
+    const action = { ...message, type, data: undefined };
+    assert.equal(readPlayerCommand({ ...event, data: action }, source, channel), action);
+    assert.equal(readPlayerCommand({ ...event, data: { ...action, data: 'injected' } }, source, channel), null);
+  }
+  const seek = { ...message, type: 'seek', data: 12.5 };
+  assert.equal(readPlayerCommand({ ...event, data: seek }, source, channel), seek);
+  for (const data of [-1, Infinity, NaN, '12', 2147483648]) assert.equal(readPlayerCommand({ ...event, data: { ...seek, data } }, source, channel), null);
+});
+
+test('Fit uses normalized video dimensions and accounts for toolbar height and bounds', () => {
+  assert.equal(videoAspectRatio(200, 113), 16 / 9);
+  assert.equal(videoAspectRatio(200, 150), 4 / 3);
+  assert.equal(videoAspectRatio(113, 200), 9 / 16);
+  assert.equal(videoAspectRatio(0, 0), 16 / 9);
+  assert.deepEqual(fitPlayerWindow(480, true), { width: 480, height: 336 });
+  assert.deepEqual(fitPlayerWindow(480, false), { width: 480, height: 292 });
+  assert.deepEqual(fitPlayerWindow(480, false, 4 / 3), { width: 480, height: 382 });
+  assert.deepEqual(fitPlayerWindow(480, true, 9 / 16), { width: 469, height: 900 });
+  assert.deepEqual(fitPlayerWindow(360, false), { width: 360, height: 225 });
+  assert.deepEqual(fitPlayerWindow(10000, false), { width: 1200, height: 697 });
+  assert.deepEqual(fitPlayerWindow(360, false, 5), { width: 1000, height: 222 });
+  assert.equal(formatTime(150.5), '2:30');
+  assert.equal(formatTime(NaN), '0:00');
 });
 
 test('manifest includes the plugin ID and player domains and points to runnable artifacts', async () => {
@@ -124,7 +149,7 @@ test('Figma entry point only opens UI and handles bounded window sizes', async (
   figma.ui.onmessage({ type: 'resize', width: 640, height: 426 });
   figma.ui.onmessage({ type: 'resize', width: 1, height: 1 });
   figma.ui.onmessage({ type: 'resize', width: 10000, height: 10000 });
-  assert.deepEqual(calls.slice(1), [['resize', 640, 426], ['resize', 360, 266], ['resize', 1200, 900]]);
+  assert.deepEqual(calls.slice(1), [['resize', 640, 426], ['resize', 360, 222], ['resize', 1200, 900]]);
   const count = calls.length;
   for (const message of [null, {}, { type: 'resize', width: NaN, height: 300 }, { type: 'resize', width: Infinity, height: 300 }, { type: 'resize', width: '640', height: 300 }, { type: 'unknown' }]) figma.ui.onmessage(message);
   assert.equal(calls.length, count);

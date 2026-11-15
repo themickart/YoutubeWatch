@@ -6,6 +6,8 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>YoutubeWatch</title>
   <style>:root{color-scheme:dark;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e4e4e8;background:#18181b}
+/* Extra controls remain outside the YouTube iframe. */
+#playback-toggle svg{fill:currentColor;stroke:none}#playback-toggle .pause-icon{display:none}#playback-toggle[data-playing=true] .pause-icon{display:block}#playback-toggle[data-playing=true] .play-icon{display:none}#seek{flex:1;min-width:32px;max-width:180px;width:80px;height:18px;margin:0;accent-color:#e76870;cursor:pointer}#seek:focus-visible{outline:1px solid #ef9198;outline-offset:0}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}button,input,a{font:inherit}button,a{color:inherit}button{cursor:pointer}button:disabled{opacity:.3;cursor:default}[hidden]{display:none!important}.app{display:grid;grid-template-rows:44px minmax(0,1fr) 22px;width:100%;height:100%;min-width:0;min-height:0}.app.toolbar-hidden{grid-template-rows:0 minmax(0,1fr) 22px}#video-form{grid-row:1;display:flex;align-items:center;gap:5px;padding:6px 8px;min-width:0}#video-url{flex:1;min-width:0;height:30px;border:1px solid #38383f;background:#222226;color:#f0f0f2;border-radius:5px;padding:0 9px;outline:none}#video-url::placeholder{color:#9898a3}#video-url:focus{border-color:#b96d73}#video-url[aria-invalid=true]{border-color:#ed777e}button,a{flex-shrink:0}button:focus-visible,a:focus-visible,#resize-handle:focus-visible{outline:2px solid #ef9198;outline-offset:1px}svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.load-button,.icon-button{border:0;border-radius:5px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:transparent;color:#aaaab5;padding:0}.load-button{color:#fff;background:#e44950}.load-button:hover{background:#f15d64}.load-button svg{fill:currentColor;stroke:none;width:17px;height:17px}.icon-button:hover:not(:disabled){color:#fff;background:#303036}.player-shell{grid-row:2;position:relative;min-width:0;min-height:0;background:#101012;overflow:hidden}#player-host{position:absolute;inset:0}#player-host iframe{width:100%;height:100%;border:0;display:block}.empty-state{position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;border:0;background:transparent;color:#92929c}.empty-state svg{fill:#e76870;stroke:none;width:32px;height:32px}.empty-state span{font-size:11px}.empty-state:hover{color:#dddde4;background:#ffffff03}.status-bar{grid-row:3;display:flex;align-items:center;min-width:0;padding-left:8px;gap:4px}#status{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:#9696a3}#status[data-state=error]{color:#f3969d}.bar-button{width:22px;height:22px;display:grid;place-items:center;border:0;padding:0;background:transparent;color:#aaaab5;border-radius:3px}.bar-button:hover{background:#303036;color:#fff}.bar-button svg{width:14px;height:14px}.toolbar-hidden #toolbar-toggle svg{transform:rotate(180deg)}#volume-controls{display:flex;align-items:center;gap:3px;flex-shrink:0}#volume{width:68px;min-width:0;height:18px;margin:0;accent-color:#e76870;cursor:pointer}#volume:focus-visible{outline:1px solid #ef9198;outline-offset:0}.sound-off{display:none}#mute-toggle[aria-pressed=true] .sound-off{display:block}#mute-toggle[aria-pressed=true] .sound-waves{display:none}#resize-handle{width:22px;height:22px;display:grid;place-items:center;cursor:nwse-resize;color:#777782;touch-action:none;user-select:none}#resize-handle svg{width:12px;height:12px}body.resizing{cursor:nwse-resize;user-select:none}body.resizing #player-host{pointer-events:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
@@ -24,7 +26,11 @@
     </section>
     <div class="status-bar">
       <button id="toolbar-toggle" class="bar-button" type="button" aria-label="Hide video link" aria-expanded="true" aria-controls="video-form" title="Hide video link" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+      <button id="playback-toggle" class="bar-button" type="button" aria-label="Play" title="Play" disabled hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path class="play-icon" d="m8 5 11 7-11 7z"/><path class="pause-icon" d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></button>
       <span id="status" role="status" aria-live="polite">Paste a link or try the demo</span>
+      <label class="sr-only" for="seek">Seek video</label>
+      <input id="seek" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="0:00" title="Seek video" hidden disabled>
+      <button id="fit-button" class="bar-button" type="button" aria-label="Fit window to video" title="Fit window to video" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><rect x="7" y="8" width="10" height="8" rx="1"/></svg></button>
       <div id="volume-controls" hidden>
         <button id="mute-toggle" class="bar-button" type="button" aria-label="Mute" aria-pressed="false" title="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off" d="m16 9 5 6m0-6-5 6"/></svg></button>
         <label class="sr-only" for="volume">Volume</label>
@@ -41,7 +47,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 function playerPageUrl(video, channel) {
   if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
   const url = new URL(PLAYER_PAGE_URL);
-  url.searchParams.set('build', '2');
+  url.searchParams.set('build', '3');
   url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
   return url.href;
 }
@@ -55,6 +61,8 @@ function readPlayerEvent(event, source, channel) {
   if (message.type === 'error' && Number.isInteger(message.data)) return message;
   if (message.type === 'failure' && message.data === 'api-unavailable') return message;
   if (message.type === 'volume' && message.data && Number.isInteger(message.data.volume) && message.data.volume >= 0 && message.data.volume <= 100 && typeof message.data.muted === 'boolean') return message;
+  if (message.type === 'aspect' && Number.isFinite(message.data) && message.data >= 0.2 && message.data <= 5) return message;
+  if (message.type === 'playback' && message.data && Number.isFinite(message.data.time) && message.data.time >= 0 && Number.isFinite(message.data.duration) && message.data.duration >= 0) return message;
   return null;
 }
 
@@ -64,7 +72,31 @@ function readPlayerCommand(event, source, channel) {
   if (!message || message.source !== 'youtubewatch-ui' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
   if (message.type === 'set-volume' && Number.isInteger(message.data) && message.data >= 0 && message.data <= 100) return message;
   if (message.type === 'set-muted' && typeof message.data === 'boolean') return message;
+  if (['play', 'pause'].includes(message.type) && message.data === undefined) return message;
+  if (message.type === 'seek' && Number.isFinite(message.data) && message.data >= 0 && message.data <= 2147483647) return message;
   return null;
+}
+
+function videoAspectRatio(width, height) {
+  const ratio = Number(width) / Number(height);
+  if (!Number.isFinite(ratio) || ratio < 0.2 || ratio > 5) return 16 / 9;
+  // oEmbed rounds its small embed dimensions, e.g. 200x113 for a 16:9 video.
+  return [16 / 9, 4 / 3, 9 / 16, 1, 3 / 2, 21 / 9].find(value => Math.abs(ratio / value - 1) < 0.015) || ratio;
+}
+
+function fitPlayerWindow(width, toolbarVisible, ratio = 16 / 9) {
+  if (!Number.isFinite(ratio) || ratio < 0.2 || ratio > 5) ratio = 16 / 9;
+  const chrome = toolbarVisible ? 66 : 22;
+  width = Math.max(360, Math.min(1200, Math.round(width)));
+  width = Math.max(width, Math.ceil(200 * ratio));
+  if (width / ratio + chrome > 900) width = Math.max(360, Math.floor((900 - chrome) * ratio));
+  return { width, height: Math.max(chrome + 200, Math.min(900, Math.round(width / ratio) + chrome)) };
+}
+
+function formatTime(seconds) {
+  seconds = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function parseTime(value) {
@@ -105,7 +137,7 @@ function parseVideo(input) {
 function embedUrl(video, origin) {
   // Never navigate directly to pasted URLs, including short URLs.
   const url = new URL(`https://www.youtube.com/embed/${video.id}`);
-  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '1', rel: '0' });
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '0', rel: '0' });
   if (video.start) url.searchParams.set('start', String(video.start));
   // An opaque Figma sandbox has no HTTP origin; do not invent one.
   if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
@@ -134,6 +166,34 @@ let audio = { volume: 100, muted: false };
 let preferredVolume = null;
 let preferredMuted = null;
 let lastAudibleVolume = 100;
+let aspectRatio = 16 / 9;
+let fitActive = false;
+let playing = false;
+let duration = 0;
+let seeking = false;
+
+function fitWindow() {
+  const size = fitPlayerWindow(innerWidth, !$('video-form').hidden, aspectRatio);
+  resize(size.width, size.height);
+}
+
+function renderPlayback(value) {
+  playing = value;
+  $('playback-toggle').dataset.playing = String(value);
+  $('playback-toggle').setAttribute('aria-label', value ? 'Pause' : 'Play');
+  $('playback-toggle').title = value ? 'Pause' : 'Play';
+}
+
+function renderProgress(data) {
+  duration = data.duration;
+  $('seek').hidden = duration <= 0;
+  $('seek').disabled = duration <= 0;
+  if (seeking || duration <= 0) return;
+  $('seek').value = String(Math.round(Math.min(data.time / duration, 1) * 1000));
+  const label = `${formatTime(data.time)} / ${formatTime(duration)}`;
+  $('seek').setAttribute('aria-valuetext', label);
+  $('seek').title = label;
+}
 
 function setToolbarHidden(hidden) {
   const focused = $('video-form').contains(document.activeElement);
@@ -144,6 +204,8 @@ function setToolbarHidden(hidden) {
   $('toolbar-toggle').setAttribute('aria-label', label);
   $('toolbar-toggle').title = label;
   if (hidden && focused) $('toolbar-toggle').focus({ preventScroll: true });
+  if (fitActive) fitWindow();
+  else if (innerHeight < (hidden ? 222 : 266)) resize(innerWidth, hidden ? 222 : 266);
 }
 
 function sendCommand(type, data) {
@@ -176,10 +238,12 @@ function onPlayerEvent(type, data) {
     if (playbackError) return;
     clearTimeout(loadTimer);
     setStatus('Press play in the video', 'ready');
+    $('playback-toggle').disabled = false;
     if (preferredVolume !== null) sendCommand('set-volume', preferredVolume);
     if (preferredMuted !== null) sendCommand('set-muted', preferredMuted);
   } else if (type === 'error') {
     playbackError = true;
+    renderPlayback(false);
     setToolbarHidden(false);
     clearTimeout(loadTimer);
     setStatus(data === 153 ? 'Error 153 · missing player referrer' : `YouTube error ${data}`, 'error', playerError(data));
@@ -188,12 +252,15 @@ function onPlayerEvent(type, data) {
     // An unstarted event must not erase a preceding 153 error.
     if (states[data] && (data === 1 || !playbackError)) {
       if (data === 1) playbackError = false;
+      if ([0, 1, 2, 5].includes(data)) renderPlayback(data === 1);
       if (data === 1 && autoHideToolbar) { autoHideToolbar = false; setToolbarHidden(true); }
       clearTimeout(loadTimer);
       setStatus(...states[data]);
     }
   } else if (type === 'volume') renderAudio(data);
-  else if (type === 'autoplay-blocked' && !playbackError) setStatus('Press play in the video', 'ready');
+  else if (type === 'playback') renderProgress(data);
+  else if (type === 'aspect') { aspectRatio = data; if (fitActive) fitWindow(); }
+  else if (type === 'autoplay-blocked' && !playbackError) { renderPlayback(false); setStatus('Press play in the video', 'ready'); }
   else if (type === 'failure') {
     clearTimeout(loadTimer);
     setStatus('Player status unavailable. Try reload.', 'error');
@@ -212,6 +279,15 @@ function loadVideo(input) {
   $('video-url').removeAttribute('aria-invalid');
   clearTimeout(loadTimer);
   currentVideo = video;
+  aspectRatio = 16 / 9;
+  duration = 0;
+  seeking = false;
+  renderPlayback(false);
+  $('playback-toggle').hidden = false;
+  $('playback-toggle').disabled = true;
+  $('seek').hidden = true;
+  $('seek').disabled = true;
+  $('fit-button').disabled = false;
   playbackError = false;
   autoHideToolbar = true;
   setToolbarHidden(false);
@@ -269,16 +345,35 @@ $('mute-toggle').addEventListener('click', () => {
   } else renderAudio({ volume: audio.volume, muted: preferredMuted });
   sendCommand('set-muted', preferredMuted);
 });
+$('fit-button').addEventListener('click', () => { fitActive = true; fitWindow(); });
+$('playback-toggle').addEventListener('click', () => {
+  sendCommand(playing ? 'pause' : 'play');
+  renderPlayback(!playing);
+});
+$('seek').addEventListener('pointerdown', () => { seeking = true; });
+$('seek').addEventListener('pointercancel', () => { seeking = false; });
+$('seek').addEventListener('pointerup', () => { seeking = false; });
+$('seek').addEventListener('input', event => {
+  seeking = true;
+  const label = `${formatTime(Number(event.target.value) / 1000 * duration)} / ${formatTime(duration)}`;
+  $('seek').setAttribute('aria-valuetext', label);
+  $('seek').title = label;
+});
+$('seek').addEventListener('change', event => {
+  if (duration > 0) sendCommand('seek', Number(event.target.value) / 1000 * duration);
+  seeking = false;
+});
 
 function resize(width, height) {
   width = Math.max(360, Math.min(1200, Math.round(width)));
-  height = Math.max(266, Math.min(900, Math.round(height)));
+  height = Math.max($('video-form').hidden ? 222 : 266, Math.min(900, Math.round(height)));
   if (window.parent !== window) parent.postMessage({ pluginMessage: { type: 'resize', width, height } }, '*');
 }
 let drag;
 const handle = $('resize-handle');
 handle.addEventListener('pointerdown', event => {
   if (event.button !== 0) return;
+  fitActive = false;
   drag = { x: event.screenX, y: event.screenY, width: innerWidth, height: innerHeight };
   handle.setPointerCapture(event.pointerId);
   document.body.classList.add('resizing');
@@ -294,6 +389,7 @@ handle.addEventListener('keydown', event => {
   const step = event.shiftKey ? 40 : 10;
   const offsets = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
   if (!offsets[event.key]) return;
+  fitActive = false;
   event.preventDefault();
   resize(innerWidth + offsets[event.key][0], innerHeight + offsets[event.key][1]);
 });

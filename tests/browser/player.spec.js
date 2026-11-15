@@ -8,6 +8,9 @@ window.YT = { Player: class {
     this.frame = frame;
     this.volume = 100;
     this.muted = false;
+    this.time = 0;
+    this.duration = 300;
+    this.events = options.events;
     window.testPlayer = this;
     window.testPlayerEvents = options.events;
     queueMicrotask(() => options.events.onReady({ target: this }));
@@ -18,13 +21,20 @@ window.YT = { Player: class {
   isMuted() { return this.muted; }
   mute() { this.muted = true; }
   unMute() { this.muted = false; }
+  getCurrentTime() { return this.time; }
+  getDuration() { return this.duration; }
+  playVideo() { this.events.onStateChange({ data: 1 }); }
+  pauseVideo() { this.events.onStateChange({ data: 2 }); }
+  seekTo(value) { this.time = value; }
 } };
 window.onYouTubeIframeAPIReady();`;
 
 test.beforeEach(async ({ page }) => {
   const html = await readFile(new URL('../../player.html', import.meta.url), 'utf8');
   await page.route(PLAYER_PAGE_URL + '**', route => route.fulfill({ contentType: 'text/html', body: html }));
-  await page.route('https://www.youtube.com/**', route => route.fulfill({
+  await page.route('https://www.youtube.com/**', route => route.fulfill(route.request().url().includes('/oembed') ? {
+    contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ width: 200, height: 113 })
+  } : {
     contentType: route.request().url().includes('/iframe_api') ? 'application/javascript' : 'text/html',
     body: route.request().url().includes('/iframe_api') ? mockAPI : '<html><body>Mock YouTube iframe</body></html>'
   }));
@@ -74,7 +84,7 @@ test('demo reports playback and keeps 153 visible after late ready/unstarted eve
   await page.goto('/');
   await page.locator('#demo-play').click();
   await expect(page.locator('#status')).toHaveText('Press play in the video');
-  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /^https:\/\/themickart\.github\.io\/YoutubeWatch\/player\.html\?build=2#/);
+  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /^https:\/\/themickart\.github\.io\/YoutubeWatch\/player\.html\?build=3#/);
   const youtube = page.frameLocator('#youtube-player').locator('#player');
   await expect(youtube).toHaveAttribute('src', /^https:\/\/www\.youtube\.com\/embed\/M7lc1UVf-VE\?/);
   await expect(youtube).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
@@ -136,7 +146,7 @@ test('data URL sandbox exposes null origin and emits bounded resize messages', a
   await sandbox.locator('#demo-play').click();
   await expect(sandbox.locator('#status')).toHaveText('Press play in the video');
   expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).origin).toBe('https://themickart.github.io');
-  expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).search).toBe('?build=2');
+  expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).search).toBe('?build=3');
   await sandbox.locator('#resize-handle').focus();
   await sandbox.locator('#resize-handle').press('ArrowRight');
   await expect.poll(() => page.evaluate(() => window.resizeMessage)).toEqual({ type: 'resize', width: 490, height: 336 });
@@ -237,4 +247,84 @@ test('volume and mute control the player, sync native changes and survive reload
   await expect.poll(() => hosted().evaluate(() => window.testPlayer.isMuted())).toBe(false);
   await page.setViewportSize({ width: 360, height: 266 });
   await expectNoOverflow(page);
+});
+
+async function openResizableSandbox(page) {
+  const html = await readFile(new URL('../../ui.html', import.meta.url), 'utf8');
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await page.goto('/');
+  await page.evaluate(html => {
+    document.body.replaceChildren();
+    const frame = document.createElement('iframe');
+    frame.id = 'fit-sandbox';
+    frame.style.cssText = 'width:480px;height:700px;border:0';
+    frame.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    window.addEventListener('message', event => {
+      const message = event.data?.pluginMessage;
+      if (event.source !== frame.contentWindow || message?.type !== 'resize') return;
+      window.lastResize = message;
+      frame.style.width = `${message.width}px`;
+      frame.style.height = `${message.height}px`;
+    });
+    document.body.appendChild(frame);
+  }, html);
+  return page.frameLocator('#fit-sandbox');
+}
+
+test('Fit uses video aspect metadata and keeps the video fitted when the toolbar hides', async ({ page }) => {
+  await page.route('https://www.youtube.com/oembed**', route => route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ width: 200, height: 150 }) }));
+  const sandbox = await openResizableSandbox(page);
+  await sandbox.locator('#demo-play').click();
+  await expect(sandbox.locator('#status')).toHaveText('Press play in the video');
+  const src = await sandbox.locator('#youtube-player').getAttribute('src');
+  await sandbox.getByRole('button', { name: 'Fit window to video' }).click();
+  await expect.poll(() => page.evaluate(() => window.lastResize)).toEqual({ type: 'resize', width: 480, height: 426 });
+  await sandbox.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(sandbox.locator('#status')).toHaveText('Playing');
+  await expect.poll(() => page.evaluate(() => window.lastResize)).toEqual({ type: 'resize', width: 480, height: 382 });
+  await expect(sandbox.locator('#youtube-player')).toHaveAttribute('src', src);
+  expect(await sandbox.locator('.player-shell').evaluate(element => Math.abs(element.clientWidth / element.clientHeight - 4 / 3) < 0.01)).toBe(true);
+});
+
+test('Fit falls back to 16:9 when video metadata cannot be loaded', async ({ page }) => {
+  await page.route('https://www.youtube.com/oembed**', route => route.abort());
+  const sandbox = await openResizableSandbox(page);
+  await sandbox.locator('#demo-play').click();
+  await expect(sandbox.locator('#status')).toHaveText('Press play in the video');
+  await sandbox.getByRole('button', { name: 'Fit window to video' }).click();
+  await expect.poll(() => page.evaluate(() => window.lastResize)).toEqual({ type: 'resize', width: 480, height: 336 });
+});
+
+test('custom play, pause and seek work with native YouTube controls disabled', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#demo-play').click();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+  await expect(page.frameLocator('#youtube-player').locator('#player')).toHaveAttribute('src', /[?&]controls=0/);
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.locator('#status')).toHaveText('Playing');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.locator('#status')).toHaveText('Paused');
+  await page.locator('#seek').evaluate(element => {
+    element.value = '500';
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const hosted = page.frames().find(frame => frame.url().startsWith(PLAYER_PAGE_URL));
+  await expect.poll(() => hosted.evaluate(() => window.testPlayer.getCurrentTime())).toBe(150);
+  await expect(page.locator('#seek')).toHaveAttribute('aria-valuetext', '2:30 / 5:00');
+  await page.setViewportSize({ width: 360, height: 222 });
+  await expectNoOverflow(page);
+  expect((await page.locator('.player-shell').boundingBox()).height).toBeGreaterThanOrEqual(200);
+});
+
+test('revealing the link toolbar keeps at least 200 pixels for video in a short window', async ({ page }) => {
+  const sandbox = await openResizableSandbox(page);
+  await sandbox.locator('#demo-play').click();
+  await expect(sandbox.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+  await sandbox.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(sandbox.locator('#video-form')).toBeHidden();
+  await page.locator('#fit-sandbox').evaluate(element => { element.style.height = '222px'; });
+  await sandbox.getByRole('button', { name: 'Show video link' }).click();
+  await expect.poll(() => page.evaluate(() => window.lastResize)).toEqual({ type: 'resize', width: 480, height: 266 });
+  expect((await sandbox.locator('.player-shell').boundingBox()).height).toBeGreaterThanOrEqual(200);
 });

@@ -6,7 +6,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 export function playerPageUrl(video, channel) {
   if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
   const url = new URL(PLAYER_PAGE_URL);
-  url.searchParams.set('build', '2');
+  url.searchParams.set('build', '3');
   url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
   return url.href;
 }
@@ -20,6 +20,8 @@ export function readPlayerEvent(event, source, channel) {
   if (message.type === 'error' && Number.isInteger(message.data)) return message;
   if (message.type === 'failure' && message.data === 'api-unavailable') return message;
   if (message.type === 'volume' && message.data && Number.isInteger(message.data.volume) && message.data.volume >= 0 && message.data.volume <= 100 && typeof message.data.muted === 'boolean') return message;
+  if (message.type === 'aspect' && Number.isFinite(message.data) && message.data >= 0.2 && message.data <= 5) return message;
+  if (message.type === 'playback' && message.data && Number.isFinite(message.data.time) && message.data.time >= 0 && Number.isFinite(message.data.duration) && message.data.duration >= 0) return message;
   return null;
 }
 
@@ -29,7 +31,31 @@ export function readPlayerCommand(event, source, channel) {
   if (!message || message.source !== 'youtubewatch-ui' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
   if (message.type === 'set-volume' && Number.isInteger(message.data) && message.data >= 0 && message.data <= 100) return message;
   if (message.type === 'set-muted' && typeof message.data === 'boolean') return message;
+  if (['play', 'pause'].includes(message.type) && message.data === undefined) return message;
+  if (message.type === 'seek' && Number.isFinite(message.data) && message.data >= 0 && message.data <= 2147483647) return message;
   return null;
+}
+
+export function videoAspectRatio(width, height) {
+  const ratio = Number(width) / Number(height);
+  if (!Number.isFinite(ratio) || ratio < 0.2 || ratio > 5) return 16 / 9;
+  // oEmbed rounds its small embed dimensions, e.g. 200x113 for a 16:9 video.
+  return [16 / 9, 4 / 3, 9 / 16, 1, 3 / 2, 21 / 9].find(value => Math.abs(ratio / value - 1) < 0.015) || ratio;
+}
+
+export function fitPlayerWindow(width, toolbarVisible, ratio = 16 / 9) {
+  if (!Number.isFinite(ratio) || ratio < 0.2 || ratio > 5) ratio = 16 / 9;
+  const chrome = toolbarVisible ? 66 : 22;
+  width = Math.max(360, Math.min(1200, Math.round(width)));
+  width = Math.max(width, Math.ceil(200 * ratio));
+  if (width / ratio + chrome > 900) width = Math.max(360, Math.floor((900 - chrome) * ratio));
+  return { width, height: Math.max(chrome + 200, Math.min(900, Math.round(width / ratio) + chrome)) };
+}
+
+export function formatTime(seconds) {
+  seconds = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 export function parseTime(value) {
@@ -70,7 +96,7 @@ export function parseVideo(input) {
 export function embedUrl(video, origin) {
   // Never navigate directly to pasted URLs, including short URLs.
   const url = new URL(`https://www.youtube.com/embed/${video.id}`);
-  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '1', rel: '0' });
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', controls: '0', rel: '0' });
   if (video.start) url.searchParams.set('start', String(video.start));
   // An opaque Figma sandbox has no HTTP origin; do not invent one.
   if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
