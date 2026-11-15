@@ -1,0 +1,8 @@
+Generated with the built-in image_gen tool.
+
+Use case: ads-marketing.
+Asset type: final Figma Community plugin cover / thumbnail, wide landscape 16:9, target 1920 by 1080 pixels.
+Create a polished, restrained product-launch cover for an existing Figma plugin called YoutubeWatch. Its actual visual language is charcoal black (#18181b), warm coral red (#e76870), off-white text and compact flat controls.
+Composition: generous outer margins, strong readable typography on the left, one beautiful floating compact desktop video-player window on the right, on a deep charcoal background. Extremely subtle abstract design-canvas outlines behind the player suggest a design workspace without recreating a whole Figma application screenshot. The player contains an original cinematic abstract coral-red sculptural play symbol, soft illumination, and one very minimal dark control strip below with small playback, seek, fit and volume glyphs. The composition must remain uncluttered and legible as a small thumbnail. A tasteful editorial product illustration, not a fake screenshot or a dense dashboard.
+Text, exact and only these two strings: "YoutubeWatch" in large clean bold off-white geometric sans serif; below it, "YouTube, right inside Figma." in a smaller understated line. Spell both verbatim. Keep all text well within the central safe area.
+Style: premium contemporary software product artwork, crisp edges, subtle depth and soft shadows, quiet atmosphere, balanced negative space. Avoid loud neon, gradients across text, purple or blue accent colors, extra copy, feature badges, people, unrelated logos, watermarks, official Figma or YouTube logos and any implication of official endorsement. Output one finished image.

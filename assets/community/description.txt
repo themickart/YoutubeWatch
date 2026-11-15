@@ -1,0 +1,21 @@
+Watch YouTube videos right inside Figma.
+
+Keep a tutorial, design talk, or reference video beside your work without switching tabs to watch. YoutubeWatch brings a compact, resizable video player into your Figma workspace.
+
+Features
+- Play, pause, and seek from a compact control bar.
+- Adjust volume or mute with one click.
+- Fit the window to the video's proportions.
+- Hide the link toolbar while watching and bring it back when you need it.
+- Resize the player to suit your workspace.
+- Open standard YouTube links, youtu.be links, Shorts, live videos, and video IDs.
+- Start from the timestamp in your video link.
+
+How to use
+1. Run YoutubeWatch in a Figma Design file.
+2. Paste a YouTube link and press Enter.
+3. Press Play, adjust the size, and keep designing.
+
+An internet connection is required. Some private, age-restricted, or embedding-disabled videos may not play.
+
+Feedback and source code: https://github.com/themickart/YoutubeWatch

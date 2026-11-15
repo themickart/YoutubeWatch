@@ -1,0 +1,1 @@
+Restored YouTube playback and refreshed the compact interface. Added Play/Pause, seeking, volume and mute controls, automatic toolbar hiding, and Fit to match the window to video proportions. Improved resizing and playback feedback.
