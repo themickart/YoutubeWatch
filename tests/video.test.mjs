@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { parseVideo, parseTime, embedUrl, playerError } from '../src/video.mjs';
+import { parseVideo, parseTime, embedUrl, playerError, playerPageUrl, readPlayerEvent, PLAYER_PAGE_URL } from '../src/video.mjs';
 
 test('accepts video links, mobile, Shorts, live and embed links without fetching them', () => {
   for (const input of [
@@ -39,7 +39,7 @@ test('rejects other domains, executable URLs, spoofed hosts, credentials and inv
   ]) assert.throws(() => parseVideo(input), undefined, input);
 });
 
-test('normalizes every supported input to the single permitted network origin', () => {
+test('normalizes YouTube embeds to the official network origin', () => {
   const url = new URL(embedUrl(parseVideo('https://youtu.be/M7lc1UVf-VE?t=12&si=tracking'), 'null'));
   assert.equal(url.origin, 'https://www.youtube.com');
   assert.equal(url.pathname, '/embed/M7lc1UVf-VE');
@@ -58,14 +58,41 @@ test('explains blocked embedding and missing player identification', () => {
   assert.match(playerError(999), /could not play/);
 });
 
-test('manifest uses only the permitted domain and points to runnable artifacts', async () => {
+test('hosted player URLs keep the video and channel in the fragment', () => {
+  const channel = 'a'.repeat(32);
+  const url = new URL(playerPageUrl(parseVideo('https://youtu.be/M7lc1UVf-VE?t=90'), channel));
+  assert.equal(url.origin + url.pathname, PLAYER_PAGE_URL);
+  assert.equal(url.search, '');
+  assert.equal(new URLSearchParams(url.hash.slice(1)).get('start'), '90');
+  assert.equal(new URLSearchParams(url.hash.slice(1)).get('channel'), channel);
+  assert.throws(() => playerPageUrl({ id: '<script>', start: 0 }, channel));
+  assert.throws(() => playerPageUrl({ id: 'M7lc1UVf-VE', start: 0 }, 'invalid'));
+});
+
+test('player events require the correct origin, window, channel, version and shape', () => {
+  const source = {};
+  const channel = 'a'.repeat(32);
+  const message = { source: 'youtubewatch-player', version: 1, channel, type: 'state', data: 1 };
+  const event = { source, origin: 'https://themickart.github.io', data: message };
+  assert.equal(readPlayerEvent(event, source, channel), message);
+  for (const patch of [{ source: {} }, { origin: 'null' }, { origin: 'https://evil.example' }, { data: null }]) assert.equal(readPlayerEvent({ ...event, ...patch }, source, channel), null);
+  for (const patch of [{ version: 2 }, { channel: 'b'.repeat(32) }, { source: 'other' }, { type: 'resize' }, { data: '1' }, { data: 10000 }]) assert.equal(readPlayerEvent({ ...event, data: { ...message, ...patch } }, source, channel), null);
+  assert.equal(readPlayerEvent(event, null, channel), null);
+  assert.equal(readPlayerEvent(event, source, null), null);
+});
+
+test('manifest includes the plugin ID and player domains and points to runnable artifacts', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url)));
-  assert.deepEqual(manifest.networkAccess, { allowedDomains: ['https://www.youtube.com'] });
+  assert.equal(manifest.id, '1441766262549436446');
+  assert.deepEqual(manifest.networkAccess, { allowedDomains: ['https://www.youtube.com', 'https://themickart.github.io'] });
   assert.equal(manifest.documentAccess, 'dynamic-page');
   for (const path of [manifest.main, manifest.ui]) assert.ok((await readFile(new URL(`../${path}`, import.meta.url))).length);
   const html = await readFile(new URL('../ui.html', import.meta.url), 'utf8');
   assert.ok(!html.includes('/* INLINE_'));
   new vm.Script(html.match(/<script>([\s\S]*)<\/script>/)[1]);
+  const player = await readFile(new URL('../player.html', import.meta.url), 'utf8');
+  assert.ok(!player.includes('/* INLINE_'));
+  new vm.Script(player.match(/<script>([\s\S]*)<\/script>/)[1]);
 });
 
 test('Figma entry point only opens UI and handles bounded window sizes', async () => {

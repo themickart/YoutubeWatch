@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://www.youtube.com; style-src 'unsafe-inline'; frame-src https://www.youtube.com; connect-src https://www.youtube.com; base-uri 'none'; form-action 'none'">
+  <title>YoutubeWatch player</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101012;color:#aaa;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}iframe{display:block;width:100%;height:100%;border:0}#error{margin:0;padding:16px;line-height:1.5}[hidden]{display:none}
+  </style>
+</head>
+<body>
+  <p id="error" hidden></p>
+  <script>const DEMO_URL = "https://www.youtube.com/watch?v=M7lc1UVf-VE";
+const PLAYER_PAGE_URL = "https://themickart.github.io/YoutubeWatch/player.html";
+const PLAYER_PROTOCOL = 1;
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+
+function playerPageUrl(video, channel) {
+  if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
+  const url = new URL(PLAYER_PAGE_URL);
+  url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
+  return url.href;
+}
+
+function readPlayerEvent(event, source, channel) {
+  if (!source || !channel || event.source !== source || event.origin !== new URL(PLAYER_PAGE_URL).origin) return null;
+  const message = event.data;
+  if (!message || message.source !== 'youtubewatch-player' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
+  if (['ready', 'autoplay-blocked'].includes(message.type)) return message;
+  if (message.type === 'state' && [-1, 0, 1, 2, 3, 5].includes(message.data)) return message;
+  if (message.type === 'error' && Number.isInteger(message.data)) return message;
+  if (message.type === 'failure' && message.data === 'api-unavailable') return message;
+  return null;
+}
+
+function parseTime(value) {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Math.min(Number(value), 2147483647);
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(value);
+  if (!match || !match[0]) return 0;
+  return Math.min(Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0), 2147483647);
+}
+
+function parseVideo(input) {
+  const value = input.trim();
+  if (VIDEO_ID.test(value)) return { id: value, start: 0 };
+  let url;
+  try {
+    url = new URL(/^(?:(?:www|m)\.)?(?:youtube\.com|youtu\.be)\//i.test(value) ? `https://${value}` : value);
+  } catch {
+    throw new Error("Paste a YouTube video link or an 11-character video ID.");
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port) {
+    throw new Error("Use a regular YouTube video link.");
+  }
+  const host = url.hostname.toLowerCase();
+  let id;
+  if (host === 'youtu.be') {
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length === 1) id = parts[0];
+  } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)) {
+    if (url.pathname === '/watch') id = url.searchParams.get('v');
+    else id = /^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})\/?$/.exec(url.pathname)?.[1];
+  } else {
+    throw new Error("Only YouTube video links are supported.");
+  }
+  if (!id || !VIDEO_ID.test(id)) throw new Error("This link has no video ID. Open a video and copy its link.");
+  return { id, start: parseTime(url.searchParams.get('t') || url.searchParams.get('start') || new URLSearchParams(url.hash.slice(1)).get('t')) };
+}
+
+function embedUrl(video, origin) {
+  // Never navigate directly to pasted URLs, including short URLs.
+  const url = new URL(`https://www.youtube.com/embed/${video.id}`);
+  url.search = new URLSearchParams({ enablejsapi: '1', playsinline: '1', autoplay: '0', rel: '0' });
+  if (video.start) url.searchParams.set('start', String(video.start));
+  // An opaque Figma sandbox has no HTTP origin; do not invent one.
+  if (origin && /^https?:\/\//.test(origin)) url.searchParams.set('origin', new URL(origin).origin);
+  return url.href;
+}
+
+function playerError(code) {
+  const messages = {
+    2: "YouTube could not read this video ID. Check the link and try again.",
+    5: "YouTube could not play this video. Try reloading it or opening it on YouTube.",
+    100: "This video is unavailable, private, or has been removed. Try another link.",
+    101: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
+    150: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
+    153: "YouTube did not receive the required HTTP Referer. Reload the video and check that the current player.html is published on GitHub Pages."
+  };
+  return messages[code] || "YouTube could not play this video. Try another link or open it on YouTube.";
+}
+
+const params = new URLSearchParams(location.hash.slice(1));
+const videoId = params.get('v');
+const channel = params.get('channel');
+let apiTimer;
+
+function send(type, data) {
+  // The local Figma UI has an opaque origin; authenticate replies there by source and channel.
+  parent.postMessage({ source: 'youtubewatch-player', version: PLAYER_PROTOCOL, channel, type, data }, '*');
+}
+
+function showError(text) {
+  const error = document.getElementById('error');
+  error.textContent = text;
+  error.hidden = false;
+}
+
+if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || '') || !/^[a-f0-9]{32}$/.test(channel || '')) {
+  showError('Open a video from the YoutubeWatch plugin.');
+} else if (!/^https?:$/.test(location.protocol)) {
+  showError('The player must be opened from its website.');
+} else {
+  const frame = document.createElement('iframe');
+  frame.id = 'player';
+  frame.title = 'YouTube video player';
+  frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+  frame.allowFullscreen = true;
+  frame.referrerPolicy = 'strict-origin-when-cross-origin';
+  frame.src = embedUrl({ id: videoId, start: parseTime(params.get('start')) }, location.origin);
+  document.body.appendChild(frame);
+
+  window.onYouTubeIframeAPIReady = () => {
+    clearTimeout(apiTimer);
+    try {
+      new YT.Player(frame, { events: {
+        onReady: () => send('ready'),
+        onStateChange: event => send('state', event.data),
+        onError: event => send('error', event.data),
+        onAutoplayBlocked: () => send('autoplay-blocked')
+      } });
+    } catch { send('failure', 'api-unavailable'); }
+  };
+  const script = document.createElement('script');
+  script.src = 'https://www.youtube.com/iframe_api';
+  script.onerror = () => { clearTimeout(apiTimer); send('failure', 'api-unavailable'); };
+  apiTimer = setTimeout(() => send('failure', 'api-unavailable'), 15000);
+  document.head.appendChild(script);
+}
+</script>
+</body>
+</html>

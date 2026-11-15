@@ -1,5 +1,25 @@
 export const DEMO_URL = "https://www.youtube.com/watch?v=M7lc1UVf-VE";
+export const PLAYER_PAGE_URL = "https://themickart.github.io/YoutubeWatch/player.html";
+export const PLAYER_PROTOCOL = 1;
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+
+export function playerPageUrl(video, channel) {
+  if (!VIDEO_ID.test(video.id) || !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Invalid player configuration.');
+  const url = new URL(PLAYER_PAGE_URL);
+  url.hash = new URLSearchParams({ v: video.id, start: String(parseTime(String(video.start))), channel });
+  return url.href;
+}
+
+export function readPlayerEvent(event, source, channel) {
+  if (!source || !channel || event.source !== source || event.origin !== new URL(PLAYER_PAGE_URL).origin) return null;
+  const message = event.data;
+  if (!message || message.source !== 'youtubewatch-player' || message.version !== PLAYER_PROTOCOL || message.channel !== channel) return null;
+  if (['ready', 'autoplay-blocked'].includes(message.type)) return message;
+  if (message.type === 'state' && [-1, 0, 1, 2, 3, 5].includes(message.data)) return message;
+  if (message.type === 'error' && Number.isInteger(message.data)) return message;
+  if (message.type === 'failure' && message.data === 'api-unavailable') return message;
+  return null;
+}
 
 export function parseTime(value) {
   if (!value) return 0;
@@ -53,7 +73,7 @@ export function playerError(code) {
     100: "This video is unavailable, private, or has been removed. Try another link.",
     101: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
     150: "The owner does not allow embedded playback. Try another video or open it on YouTube.",
-    153: "YouTube did not receive the required HTTP Referer from the Figma sandbox. With only www.youtube.com allowed, this environment cannot play the embed. Use the arrow beside the link to open it on YouTube."
+    153: "YouTube did not receive the required HTTP Referer. Reload the video and check that the current player.html is published on GitHub Pages."
   };
   return messages[code] || "YouTube could not play this video. Try another link or open it on YouTube.";
 }

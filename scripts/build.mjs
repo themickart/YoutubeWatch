@@ -8,4 +8,7 @@ const app = await read('src/ui.js');
 const output = template.replace('/* INLINE_STYLES */', () => styles)
   .replace('/* INLINE_SCRIPT */', () => `${video}\n${app}`);
 await writeFile(new URL('ui.html', root), output);
-console.log('Built ui.html — import manifest.json in Figma. No runtime dependencies.');
+const playerTemplate = await read('src/player.html');
+const playerScript = await read('src/player.js');
+await writeFile(new URL('player.html', root), playerTemplate.replace('/* INLINE_SCRIPT */', () => `${video}\n${playerScript}`));
+console.log('Built ui.html and player.html — import manifest.json in Figma.');

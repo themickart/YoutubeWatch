@@ -1,9 +1,8 @@
 const $ = id => document.getElementById(id);
-let player = null;
 let currentVideo = null;
-let attempt = 0;
+let channel = null;
 let loadTimer;
-let apiPromise;
+let playbackError = false;
 
 function setStatus(text, state = 'idle', detail = text) {
   $('status').textContent = text;
@@ -11,46 +10,32 @@ function setStatus(text, state = 'idle', detail = text) {
   $('status').title = detail;
 }
 
-function loadAPI() {
-  if (window.YT?.Player) return Promise.resolve();
-  if (apiPromise) return apiPromise;
-  apiPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const timer = setTimeout(fail, 15000);
-    function fail() {
-      clearTimeout(timer);
-      script.remove();
-      apiPromise = null;
-      reject(new Error('Player status unavailable. Try reload.'));
-    }
-    window.onYouTubeIframeAPIReady = () => { clearTimeout(timer); resolve(); };
-    script.src = 'https://www.youtube.com/iframe_api';
-    script.onerror = fail;
-    document.head.appendChild(script);
-  });
-  return apiPromise;
-}
-
 function onPlayerEvent(type, data) {
   if (type === 'ready') {
     // Ready is a successful API handshake, not evidence that playback works.
-    if ($('status').dataset.state === 'error') return;
+    if (playbackError) return;
     clearTimeout(loadTimer);
     setStatus('Press play in the video', 'ready');
   } else if (type === 'error') {
+    playbackError = true;
     clearTimeout(loadTimer);
     setStatus(data === 153 ? 'Error 153 · missing player referrer' : `YouTube error ${data}`, 'error', playerError(data));
   } else if (type === 'state') {
     const states = { 0: ['Ended', 'ready'], 1: ['Playing', 'playing'], 2: ['Paused', 'ready'], 3: ['Buffering…', 'loading'], 5: ['Press play in the video', 'ready'] };
     // An unstarted event must not erase a preceding 153 error.
-    if (states[data] && (data === 1 || $('status').dataset.state !== 'error')) {
+    if (states[data] && (data === 1 || !playbackError)) {
+      if (data === 1) playbackError = false;
       clearTimeout(loadTimer);
       setStatus(...states[data]);
     }
-  } else if (type === 'autoplay-blocked') setStatus('Press play in the video', 'ready');
+  } else if (type === 'autoplay-blocked' && !playbackError) setStatus('Press play in the video', 'ready');
+  else if (type === 'failure') {
+    clearTimeout(loadTimer);
+    setStatus('Player status unavailable. Try reload.', 'error');
+  }
 }
 
-async function loadVideo(input) {
+function loadVideo(input) {
   let video;
   try { video = parseVideo(input); }
   catch (error) {
@@ -60,10 +45,12 @@ async function loadVideo(input) {
     return;
   }
   $('video-url').removeAttribute('aria-invalid');
-  const token = ++attempt;
   clearTimeout(loadTimer);
-  if (player) { player.destroy(); player = null; }
   currentVideo = video;
+  playbackError = false;
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  channel = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
   $('demo-play').hidden = true;
   $('reload').disabled = false;
   $('external-link').href = `https://www.youtube.com/watch?v=${video.id}${video.start ? `&t=${video.start}s` : ''}`;
@@ -74,29 +61,18 @@ async function loadVideo(input) {
   frame.title = 'YouTube video player';
   frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
   frame.allowFullscreen = true;
-  frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  frame.src = embedUrl(video, window.location.origin);
+  frame.referrerPolicy = 'no-referrer';
+  frame.src = playerPageUrl(video, channel);
   $('player-host').replaceChildren(frame);
   loadTimer = setTimeout(() => {
-    if (token === attempt) setStatus('Player did not respond · try reload', 'error');
+    setStatus('Player unavailable · try reload', 'error', 'The player page did not respond. Check that player.html is published on GitHub Pages and try reloading.');
   }, 20000);
-  try {
-    await loadAPI();
-    if (token !== attempt) return;
-    player = new YT.Player(frame, {
-      events: {
-        onReady: () => { if (token === attempt) onPlayerEvent('ready'); },
-        onStateChange: event => { if (token === attempt) onPlayerEvent('state', event.data); },
-        onError: event => { if (token === attempt) onPlayerEvent('error', event.data); },
-        onAutoplayBlocked: () => { if (token === attempt) onPlayerEvent('autoplay-blocked'); }
-      }
-    });
-  } catch (error) {
-    if (token !== attempt) return;
-    clearTimeout(loadTimer);
-    setStatus(error.message, 'error');
-  }
 }
+
+window.addEventListener('message', event => {
+  const message = readPlayerEvent(event, $('youtube-player')?.contentWindow, channel);
+  if (message) onPlayerEvent(message.type, message.data);
+});
 
 $('video-form').addEventListener('submit', event => { event.preventDefault(); loadVideo($('video-url').value); });
 $('demo-play').addEventListener('click', () => { $('video-url').value = DEMO_URL; loadVideo(DEMO_URL); });

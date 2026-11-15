@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { PLAYER_PAGE_URL } from '../../src/video.mjs';
 
 const mockAPI = `
 window.YT = { Player: class {
@@ -13,11 +14,18 @@ window.YT = { Player: class {
 window.onYouTubeIframeAPIReady();`;
 
 test.beforeEach(async ({ page }) => {
+  const html = await readFile(new URL('../../player.html', import.meta.url), 'utf8');
+  await page.route(PLAYER_PAGE_URL, route => route.fulfill({ contentType: 'text/html', body: html }));
   await page.route('https://www.youtube.com/**', route => route.fulfill({
     contentType: route.request().url().includes('/iframe_api') ? 'application/javascript' : 'text/html',
     body: route.request().url().includes('/iframe_api') ? mockAPI : '<html><body>Mock YouTube iframe</body></html>'
   }));
 });
+
+async function emit(page, type, data) {
+  const frame = page.frames().find(frame => frame.url().startsWith(PLAYER_PAGE_URL));
+  await frame.evaluate(({ type, data }) => window.testPlayerEvents[type]({ data }), { type, data });
+}
 
 async function expectNoOverflow(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight && document.body.scrollHeight <= innerHeight)).toBe(true);
@@ -48,21 +56,29 @@ test('compact UI stays offline and validation does not add scrolling', async ({ 
 });
 
 test('demo reports playback and keeps 153 visible after late ready/unstarted events', async ({ page }) => {
+  const embeds = [];
+  const hostedRequests = [];
+  page.on('request', request => {
+    if (request.url().includes('/embed/')) embeds.push(request);
+    if (request.url().startsWith(PLAYER_PAGE_URL)) hostedRequests.push(request);
+  });
   await page.goto('/');
   await page.locator('#demo-play').click();
   await expect(page.locator('#status')).toHaveText('Press play in the video');
-  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /^https:\/\/www\.youtube\.com\/embed\/M7lc1UVf-VE\?/);
-  await expect(page.locator('#youtube-player')).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /^https:\/\/themickart\.github\.io\/YoutubeWatch\/player\.html#/);
+  const youtube = page.frameLocator('#youtube-player').locator('#player');
+  await expect(youtube).toHaveAttribute('src', /^https:\/\/www\.youtube\.com\/embed\/M7lc1UVf-VE\?/);
+  await expect(youtube).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  expect(embeds[0].headers().referer).toBe('https://themickart.github.io/');
+  expect(hostedRequests[0].headers().referer).toBeUndefined();
   await expect(page.locator('#demo-play')).toBeHidden();
-  await page.evaluate(() => window.testPlayerEvents.onStateChange({ data: 1 }));
+  await emit(page, 'onStateChange', 1);
   await expect(page.locator('#status')).toHaveText('Playing');
-  await page.evaluate(() => window.testPlayerEvents.onStateChange({ data: 2 }));
+  await emit(page, 'onStateChange', 2);
   await expect(page.locator('#status')).toHaveText('Paused');
-  await page.evaluate(() => {
-    window.testPlayerEvents.onError({ data: 153 });
-    window.testPlayerEvents.onReady();
-    window.testPlayerEvents.onStateChange({ data: -1 });
-  });
+  await emit(page, 'onError', 153);
+  await emit(page, 'onReady');
+  await emit(page, 'onStateChange', -1);
   await expect(page.locator('#status')).toContainText('Error 153');
   await expect(page.locator('#status')).toHaveAttribute('title', /HTTP Referer/);
   await expectNoOverflow(page);
@@ -73,10 +89,10 @@ test('timestamps survive reload and invalid input keeps the current player', asy
   await page.locator('#video-url').fill('https://youtu.be/M7lc1UVf-VE?t=1m30s');
   await page.locator('#video-url').press('Enter');
   await expect(page.locator('#status')).toHaveText('Press play in the video');
-  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /[?&]start=90/);
+  await expect(page.frameLocator('#youtube-player').locator('#player')).toHaveAttribute('src', /[?&]start=90/);
   await page.locator('#reload').click();
   await expect(page.locator('#status')).toHaveText('Press play in the video');
-  await expect(page.locator('#youtube-player')).toHaveAttribute('src', /[?&]start=90/);
+  await expect(page.frameLocator('#youtube-player').locator('#player')).toHaveAttribute('src', /[?&]start=90/);
   await expect(page.locator('#external-link')).toHaveAttribute('href', 'https://www.youtube.com/watch?v=M7lc1UVf-VE&t=90s');
   await page.locator('#video-url').fill('javascript:alert(1)');
   await page.locator('#video-url').press('Enter');
@@ -102,7 +118,7 @@ test('data URL sandbox exposes null origin and emits bounded resize messages', a
     window.addEventListener('message', event => { if (event.data?.pluginMessage) window.resizeMessage = event.data.pluginMessage; });
     const frame = document.createElement('iframe');
     frame.id = 'figma-sandbox';
-    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     frame.style.cssText = 'width:480px;height:336px;border:0';
     frame.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
     document.body.appendChild(frame);
@@ -110,7 +126,8 @@ test('data URL sandbox exposes null origin and emits bounded resize messages', a
   const sandbox = page.frameLocator('#figma-sandbox');
   await sandbox.locator('#demo-play').click();
   await expect(sandbox.locator('#status')).toHaveText('Press play in the video');
-  expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).searchParams.has('origin')).toBe(false);
+  expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).origin).toBe('https://themickart.github.io');
+  expect(new URL(await sandbox.locator('#youtube-player').getAttribute('src')).search).toBe('');
   await sandbox.locator('#resize-handle').focus();
   await sandbox.locator('#resize-handle').press('ArrowRight');
   await expect.poll(() => page.evaluate(() => window.resizeMessage)).toEqual({ type: 'resize', width: 490, height: 336 });
@@ -120,14 +137,41 @@ test('events from an old video cannot replace the current player status', async 
   await page.goto('/');
   await page.locator('#demo-play').click();
   await expect(page.locator('#status')).toHaveText('Press play in the video');
-  await page.evaluate(() => { window.oldPlayerEvents = window.testPlayerEvents; });
+  await page.evaluate(() => {
+    const frame = document.getElementById('youtube-player');
+    window.oldPlayerSource = frame.contentWindow;
+    window.oldPlayerChannel = new URLSearchParams(new URL(frame.src).hash.slice(1)).get('channel');
+  });
   await page.locator('#reload').click();
   await expect(page.locator('#status')).toHaveText('Press play in the video');
   await page.evaluate(() => {
-    window.oldPlayerEvents.onError({ data: 153 });
-    window.oldPlayerEvents.onStateChange({ data: 1 });
+    window.dispatchEvent(new MessageEvent('message', {
+      source: window.oldPlayerSource,
+      origin: 'https://themickart.github.io',
+      data: { source: 'youtubewatch-player', version: 1, channel: window.oldPlayerChannel, type: 'error', data: 153 }
+    }));
   });
   await expect(page.locator('#status')).toHaveText('Press play in the video');
   await expect(page.locator('#youtube-player')).toHaveCount(1);
   await expectNoOverflow(page);
+});
+
+test('a missing Pages deployment gets a useful timeout without scrolling', async ({ page }) => {
+  await page.route(PLAYER_PAGE_URL, route => route.fulfill({ status: 404, contentType: 'text/html', body: 'Not found' }));
+  await page.clock.install();
+  await page.goto('/');
+  await page.locator('#demo-play').click();
+  await page.clock.fastForward(21000);
+  await expect(page.locator('#status')).toHaveText('Player unavailable · try reload');
+  await expect(page.locator('#status')).toHaveAttribute('title', /player.html is published/);
+  await expectNoOverflow(page);
+});
+
+test('an invalid hosted player configuration never loads YouTube', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (request.url().startsWith('https://www.youtube.com')) requests.push(request.url()); });
+  await page.goto(PLAYER_PAGE_URL + '#v=invalid&channel=invalid');
+  await expect(page.locator('#error')).toHaveText('Open a video from the YoutubeWatch plugin.');
+  await expect(page.locator('iframe')).toHaveCount(0);
+  expect(requests).toEqual([]);
 });

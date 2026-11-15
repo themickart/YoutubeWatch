@@ -7,6 +7,6 @@
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["https://www.youtube.com"]
+    "allowedDomains": ["https://www.youtube.com", "https://themickart.github.io"]
   }
 }
